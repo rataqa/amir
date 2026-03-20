@@ -1,15 +1,18 @@
-import { IAmil, IMessageAdapter, IMsgPayload, IOutput } from '@rataqa/amil';
+import { makeLogger } from '@rataqa/sijil';
+import { Channel, ConsumeMessage } from 'amqplib';
+import amqp from 'amqp-connection-manager';
+import dotenv from 'dotenv';
 import { strictEqual } from 'node:assert';
+import { randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 
-import { Amir } from '../amir';
-
-import dotenv from 'dotenv';
-import { makeLogger } from '@rataqa/sijil';
-import amqp from 'amqp-connection-manager';
-import { randomUUID } from 'node:crypto';
+import { Amir } from '../amir/service';
 import { delay } from '../utils';
-import { Channel } from 'amqplib';
+import { IOutput } from '../types';
+import { IAmil } from '../amil/types';
+import { MessageAdapter } from '../messages';
+import { IMsgContentWithAmqpCallback } from '../services/amqp/types';
+import { IMsgContentWithHttpCallback } from '../services/http/types';
 
 dotenv.config(); // use .env and configure AMQP_URI
 
@@ -20,7 +23,7 @@ const {
   API_KEY = 'api-key-missing',
 } = process.env;
 
-interface IInput1 extends IMsgPayload {
+interface IInput1 extends IMsgContentWithHttpCallback {
   a: number;
   b: number;
 }
@@ -28,10 +31,11 @@ interface IOutput1 {
   c: number;
 }
 
-class MyWorker1 implements IAmil<IInput1, IOutput1>  {
+class MyWorker1 implements IAmil<IOutput1>  {
 
-  async work(ma: IMessageAdapter<IInput1>): Promise<IOutput<IOutput1>> {
-    const input = ma.jsonPayload();
+  async work(msg: ConsumeMessage): Promise<IOutput<IOutput1>> {
+    const ma = new MessageAdapter<IInput1>(msg);
+    const input = ma.jsonContent();
     const a = input?.success?.a || 0;
     const b = input?.success?.b || 0;
     const c = a + b;
@@ -40,7 +44,7 @@ class MyWorker1 implements IAmil<IInput1, IOutput1>  {
   }
 }
 
-interface IInput2 extends IMsgPayload {
+interface IInput2 extends IMsgContentWithAmqpCallback {
   aa: number;
   bb: number;
 }
@@ -48,10 +52,11 @@ interface IOutput2 {
   cc: number;
 }
 
-class MyWorker2 implements IAmil<IInput2, IOutput2>  {
+class MyWorker2 implements IAmil<IOutput2>  {
 
-  async work(ma: IMessageAdapter<IInput2>): Promise<IOutput<IOutput2>> {
-    const input = ma.jsonPayload();
+  async work(msg: ConsumeMessage): Promise<IOutput<IOutput2>> {
+    const ma = new MessageAdapter<IInput2>(msg);
+    const input = ma.jsonContent();
     const aa = input?.success?.aa || 0;
     const bb = input?.success?.bb || 0;
     const cc = aa * bb;
