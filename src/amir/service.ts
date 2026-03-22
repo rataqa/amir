@@ -1,52 +1,72 @@
-import { IWorker, MessageAdapter } from '@rataqa/amil';
-//import { makeAxiosFactory } from '@rataqa/jalb';
 import { ILogger } from '@rataqa/sijil';
 import { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';
 import { Channel, ConsumeMessage } from 'amqplib';
 
 import { IAmir, IChannelsByQueue, IOptionsToRegisterQueue } from './types';
-import { fireAndForget } from './utils';
-import { httpCall } from './http-call';
-import { amqpCall } from './amqp-call';
+import { fireAndForget } from '../utils';
+import { httpCall } from '../services/http/service';
+import { amqpCall } from '../services/amqp/service';
+import { IWorker } from '../amil/types';
+import { MessageAdapter } from '../messages';
 
+/**
+ * Listens to queues and wraps handlers of workers
+ */
 export class Amir implements IAmir {
-  public channels: IChannelsByQueue = {};
-  public publisher: ChannelWrapper | null = null;
+  protected _channels: IChannelsByQueue = {};
+  protected _publisher: ChannelWrapper | null = null;
 
   constructor(
-    public amqp: AmqpConnectionManager,
-    public logger: ILogger,
+    protected _amqp: AmqpConnectionManager,
+    protected _logger: ILogger,
     //public http = makeAxiosFactory(),
   ) {
     // do nothing
   }
 
-  async start() {
-    const dl = this.logger.defaultLogger;
+  amqp() {
+    return this._amqp;
+  }
 
-    this.amqp.on('connect', () => {
+  logger() {
+    return this._logger;
+  }
+
+  channels() {
+    return this._channels;
+  }
+
+  publisher(): ChannelWrapper {
+    if (this._publisher) return this._publisher;
+    throw new Error('AMQP publisher channel is not set');
+  }
+
+  async start() {
+    const dl = this._logger.defaultLogger;
+
+    this._amqp.on('connect', () => {
       dl.info('AMQP connected');
     });
 
-    this.amqp.on('disconnect', () => {
+    this._amqp.on('disconnect', () => {
       dl.info('AMQP disconnected');
     });
 
-    this.amqp.on('connectFailed', (error) => {
+    this._amqp.on('connectFailed', (error) => {
       dl.info('AMQP connectFailed', { error });
     });
 
-    await this.amqp.connect();
-    this.publisher = this.amqp.createChannel();
+    await this._amqp.connect();
+    this._publisher = this._amqp.createChannel();
   }
 
   async register(queue: string, worker: IWorker, options: IOptionsToRegisterQueue = {}) {
     const this_ = this;
-    const dl = this_.logger.defaultLogger;
-    const { isDurable: durable = true, ackRequired = true, prefetch = 1 } = options;
+    const dl = this_._logger.defaultLogger;
+    const { isDurable: durable = true, ackRequired = true, prefetchMsgCount = 1 } = options;
 
     dl.info('AMQP creating channel...');
-    const channel = this_.amqp.createChannel({
+    const channel = this_._amqp.createChannel({
       setup: async (ch: Channel) => {
         dl.info('AMQP asserting queue...', { queue, durable });
         await ch.assertQueue(queue, { durable });
@@ -59,11 +79,11 @@ export class Amir implements IAmir {
       const ma = new MessageAdapter(msg);
       const correlation_id = ma.correlationIdHeader();
       const messageId = msg.properties.messageId || 'uknown';
-      const l = this_.logger.makeLoggerPerRequest({ correlation_id, messageId });
+      const l = this_._logger.makeLoggerPerRequest({ correlation_id, messageId });
       let output: any = null;
       try {
         l.info('AMQP worker working...');
-        const workResult = await worker.work(ma); // call worker
+        const workResult = await worker.work(msg); // call worker
         if (workResult.success) {
           output = workResult.success;
           if (ackRequired) channel.ack(msg);
@@ -81,7 +101,7 @@ export class Amir implements IAmir {
       }
 
       // HTTP callback logic -- regardless of work success/error
-      const input = ma.jsonPayload();
+      const input = ma.jsonContent();
       if (input.success?.httpCallback) {
         const { httpCallback, ...otherInputs } = input.success;
         const { url, headers = {}, mergeOutput = false } = httpCallback;
@@ -97,20 +117,20 @@ export class Amir implements IAmir {
         const { queue: q, headers = {}, mergeOutput = false } = amqpCallback;
         dl.info('amqp calling', { queue: q });
         const content = mergeOutput ? { ...otherInputs, ...output } : { input: otherInputs, output };
-        const amqpCallResult = await amqpCall(this_.publisher, q, content, headers);
+        const amqpCallResult = await amqpCall({ channel: this_.publisher(), queue: q, content, headers });
         dl.info('amqp call result', { amqpCallResult });
       }
     }
 
     dl.info('AMQP subscribing...', { queue, ackRequired });
-    const result = await channel.consume(queue, handle, { noAck: !ackRequired, prefetch });
+    const result = await channel.consume(queue, handle, { noAck: !ackRequired, prefetch: prefetchMsgCount });
     dl.info('AMQP consume', { queue, result });
 
-    this.channels[queue] = { channel, worker };
+    this._channels[queue] = { channel, worker };
   }
 
   async stop() {
-    const dl = this.logger.defaultLogger;
+    const dl = this._logger.defaultLogger;
     dl.info('AMQP stopping...');
 
     const rows = Object.entries(this.channels);
@@ -119,10 +139,17 @@ export class Amir implements IAmir {
       dl.info('AMQP stopping channel and worker...', { queue });
       await fireAndForget(() => worker.stop && worker.stop());
       await fireAndForget(() => channel.close());
-      delete this.channels[queue]; // remove
+      delete this._channels[queue]; // remove
     }
 
-    await fireAndForget(() => this.amqp.close());
+    await fireAndForget(() => this._amqp.close());
     dl.info('AMQP stopped!');
   }
+}
+
+/**
+ * Alias for Amir
+ */
+export class MainWorker extends Amir {
+  // do nothing
 }

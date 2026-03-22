@@ -1,4 +1,11 @@
-import { IObjectWithStrings } from "@rataqa/amil";
+import { IObjectWithStrings } from '../../types';
+
+const JSON_MIME_TYPE = 'application/json';
+
+const defaultHeaders = {
+  accept: JSON_MIME_TYPE,
+  'content-type': JSON_MIME_TYPE,
+};
 
 export async function httpCall(
   url: string,
@@ -8,7 +15,7 @@ export async function httpCall(
   try {
     const res = await fetch(url, {
       method: 'post',
-      headers: { ...headers, 'content-type': 'application/json', accept: 'application/json' },
+      headers: { ...headers, ...defaultHeaders },
       body: JSON.stringify(reqBody),
     });
 
