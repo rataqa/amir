@@ -1,6 +1,6 @@
 {
   "name": "@rataqa/amir",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Common workers that can integrate with AMQP broker",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -16,7 +16,7 @@
     "test:coverage": "node -r ts-node/register --experimental-test-coverage --test src/__tests__/*.test.ts"
   },
   "dependencies": {
-    "@rataqa/sijil": "^1.0.3",
+    "@rataqa/sijil": "^1.0.4",
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^0.10.9"
   },
