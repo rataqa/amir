@@ -13,6 +13,6 @@ export async function fireAndForget(f: Function) {
   }
 }
 
-export async function delay(ms: number) {
+export async function waitForMs(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }

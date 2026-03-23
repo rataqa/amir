@@ -1,10 +1,13 @@
+import { IBasicLogger } from '@rataqa/sijil';
 import { Options } from 'amqplib';
 import { ChannelWrapper } from 'amqp-connection-manager';
 
 import { IOutput } from '../../types';
 
 export interface IMessagePublisher {
-  channel(): ChannelWrapper;
+  setLogger(logger: IBasicLogger): void;
+  setChannel(channel: ChannelWrapper): void;
+
   sendToQueue(input: IInputToSendToQueue): Promise<IOutput<boolean>>;
   publishToExchange(input: IInputToPublishToExchange): Promise<IOutput<boolean>>;
 }

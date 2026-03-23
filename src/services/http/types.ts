@@ -1,4 +1,4 @@
-import { IObjectWithStrings } from '../../types';
+import { IObject, IObjectWithStrings } from '../../types';
 
 export interface IMsgContentWithHttpCallback {
   httpCallback?: IHttpCallback;
@@ -9,4 +9,5 @@ export interface IHttpCallback {
   url         : string;
   headers?    : IObjectWithStrings;
   mergeOutput?: boolean;
+  body       ?: IObject;
 }

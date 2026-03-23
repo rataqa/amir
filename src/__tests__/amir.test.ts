@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import { Amir } from '../amir/service';
-import { delay } from '../utils';
+import { waitForMs } from '../utils';
 import { IOutput } from '../types';
 import { IAmil } from '../amil/types';
 import { MessageAdapter } from '../messages';
@@ -101,9 +101,9 @@ describe('amir', () => {
     }
 
     await sendInput1(false); // case 1
-    await delay(5_000);
+    await waitForMs(5_000);
     await sendInput1(true); // case 2
-    await delay(5_000);
+    await waitForMs(5_000);
 
     const chCheckCallback = await amqpConn.createChannel({
       setup: async (ch: Channel) => {
@@ -116,7 +116,7 @@ describe('amir', () => {
       console.info('msg on callback queue', { content, headers });
     });
 
-    await delay(5_000);
+    await waitForMs(5_000);
 
     async function sendInput2(mergeOutput = false) {
       const corr2 = randomUUID();
@@ -136,9 +136,9 @@ describe('amir', () => {
     }
 
     await sendInput2(false); // case 3
-    await delay(5_000);
+    await waitForMs(5_000);
     await sendInput2(true); // case 4
-    await delay(5_000);
+    await waitForMs(5_000);
 
     await chTester.close();
     await chCheckCallback.close();

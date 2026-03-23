@@ -1,14 +1,17 @@
 import { ILogger } from '@rataqa/sijil';
 import { AmqpConnectionManager, ChannelWrapper } from 'amqp-connection-manager';
+
 import { IWorker } from '../amil/types';
+import { IMessagePublisher } from '../services';
 
 export interface IAmir {
-  amqp()     : AmqpConnectionManager;
-  channels() : IChannelsByQueue;
-  publisher(): ChannelWrapper;
-  logger()   : ILogger;
-  start()    : Promise<void>;
-  stop()     : Promise<void>;
+  amqp()       : AmqpConnectionManager;
+  isConnected(): boolean;
+  channels()   : IChannelsByQueue;
+  publisher()  : IMessagePublisher;
+  logger()     : ILogger;
+  start()      : Promise<void>;
+  stop()       : Promise<void>;
 
   register(queue: string, worker: IWorker, options?: IOptionsToRegisterQueue): Promise<void>;
 }
@@ -28,19 +31,25 @@ export interface IChannelsByQueue {
 export interface IOptionsToRegisterQueue {
   /**
    * Shall we make sure queue exists first?
+   * default value is true
    */
   assertQueue?: boolean;
 
   /**
    * If asserting queue, will it be durable?
-   * true by default
+   * default value is true
    */
   isDurable?: boolean;
 
   /**
-   * true by default
+   * Decide: acknowledgement of each message is required to remove from queue.
+   * default value is true
    */
   ackRequired?: boolean;
 
+  /**
+   * Number of messages to fetch
+   * default value is 1
+   */
   prefetchMsgCount?: number;
 }
